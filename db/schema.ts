@@ -1,0 +1,2 @@
+import { sqliteTable, text, integer, uniqueIndex } from 'drizzle-orm/sqlite-core';
+export const words = sqliteTable('words', {id:text('id').primaryKey(),userId:text('user_id').notNull(),term:text('term').notNull(),meaning:text('meaning').notNull(),synonyms:text('synonyms').notNull().default(''),example:text('example').notNull().default(''),wordKey:text('word_key').notNull(),known:integer('known').notNull().default(0),createdAt:integer('created_at').notNull()},t=>[uniqueIndex('words_user_key').on(t.userId,t.wordKey)]);
