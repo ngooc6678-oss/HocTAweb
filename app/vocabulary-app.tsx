@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from 'react';
 import { BookOpen, Layers, Plus, Volume2, X, Search, Check, Shuffle, Gamepad2, Headphones, Trash2, Sparkles, Download, Upload, CheckCircle2 } from 'lucide-react';
 import Games from './games';
 import WeekPicker from './week-picker';
+import {ApiError,loadAllWords} from '../lib/words-client';
 import { weekKey,weekLabel } from '../lib/weeks';
 import { validateBackup,type BackupWord } from '../lib/backup';
 import { SAMPLE, parseText, parseRows, cleanCell, keyOf, spokenTerm, posLabel, type Word, type Draft } from '../lib/vocabulary';
@@ -12,36 +13,34 @@ const columns=['Từ / Cụm từ','Nghĩa tiếng Việt','Từ đồng nghĩa'
 const keys: (keyof Draft)[]=['term','meaning','synonyms','example'];
 export function shuffled<T>(arr:T[]):T[]{const a=[...arr];for(let i=a.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
 async function api(action:string,data:object){const res=await fetch('/api/words',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,...data})});const out:any=await res.json();if(!res.ok)throw new Error(out.error);return out;}
-export default function VocabularyApp(){
+export default function VocabularyApp({userEmail=''}:{userEmail?:string}){
  const [words,setWords]=useState<Word[]>([]),[loaded,setLoaded]=useState(false),[auth,setAuth]=useState(true),[error,setError]=useState(''),[toast,setToast]=useState(''),[view,setView]=useState<View>('library'),[query,setQuery]=useState(''),[filter,setFilter]=useState('all'),[importing,setImporting]=useState(false),[help,setHelp]=useState(false),[busy,setBusy]=useState(false),[remove,setRemove]=useState<Word|null>(null);
  const [sampleWords,setSampleWords]=useState(SAMPLE);
  const [selectedWeek,setSelectedWeek]=useState('all'),[restoring,setRestoring]=useState<BackupWord[]|null>(null),[backupError,setBackupError]=useState('');
  const backupInput=useRef<HTMLInputElement>(null);
- const demo=loaded&&words.length===0;
+ const demo=loaded&&auth&&!error&&words.length===0;
  const allWords=demo?sampleWords:words;
  const visible=selectedWeek==='all'||demo?allWords:allWords.filter(w=>weekKey(w.createdAt)===selectedWeek);
  const sessionKey=selectedWeek+':'+visible.map(w=>w.id).join('|');
  const current=visible.filter(w=>(filter==='all'||(filter==='known'?w.known:!w.known)) && [w.term,w.meaning,w.synonyms].some(s=>s.toLowerCase().includes(query.toLowerCase())));
  const known=visible.filter(w=>w.known).length;
- async function refresh(){try {const r=await fetch('/api/words');if(r.status===401){setAuth(false);setLoaded(true);return;}const d:any=await r.json();if(!r.ok)throw new Error(d.error);setWords(d.words);setAuth(true);setError('');}catch(e){setError(e instanceof Error?e.message:'Không kết nối được. Hãy thử lại.');}finally{setLoaded(true);}}
+ async function refresh(){try {setWords(await loadAllWords());setAuth(true);setError('');}catch(e){if(e instanceof ApiError&&e.status===401){setAuth(false);setWords([]);}else setError(e instanceof Error?e.message:'Không kết nối được. Hãy thử lại.');}finally{setLoaded(true);}}
  useEffect(()=>{void refresh();},[]);
  useEffect(()=>{if(loaded&&selectedWeek!=='all'&&!words.some(w=>weekKey(w.createdAt)===selectedWeek))setSelectedWeek('all');},[loaded,selectedWeek,words]);
- useEffect(()=>{if('serviceWorker'in navigator&&['127.0.0.1','localhost'].includes(location.hostname)){void navigator.serviceWorker.register('/wordnest-sw.js',{scope:'/'}).catch(()=>{});}},[]);
  useEffect(()=>{if(!toast)return;const t=setTimeout(()=>setToast(''),5000);return()=>clearTimeout(t);},[toast]);
- async function save(drafts:Draft[]){setBusy(true);try {const out=await api('import',{words:drafts});await refresh();setSelectedWeek('all');setImporting(false);setToast('Đã thêm '+out.added+' từ'+(drafts.length>out.added?' · Bỏ qua '+(drafts.length-out.added)+' từ đã có.':'.'));setView('library');}finally{setBusy(false);}}
+ async function save(drafts:Draft[]){setBusy(true);let added=0;try {for(let offset=0;offset<drafts.length;offset+=50){const out=await api('import',{words:drafts.slice(offset,offset+50)});added+=out.added;}await refresh();setSelectedWeek('all');setImporting(false);setToast('Đã thêm '+added+' từ'+(drafts.length>added?' · Bỏ qua '+(drafts.length-added)+' từ đã có.':'.'));setView('library');}catch(e){await refresh();throw new Error((e as Error).message+' Bạn có thể nhấn lưu lại; những từ đã lưu sẽ tự được bỏ qua.');}finally{setBusy(false);}}
  function changeWeek(key:string){setSelectedWeek(key);setQuery('');setFilter('all');}
  async function exportBackup(){
   setBusy(true);setBackupError('');
   try{
-   const response=await fetch('/api/words',{cache:'no-store'});const fresh:any=await response.json();if(!response.ok)throw new Error(fresh.error||'Chưa tải được dữ liệu mới nhất để sao lưu.');
-   const latest:Word[]=fresh.words;
+   const latest=await loadAllWords();
    const payload={format:'wordnest-backup',version:1,exportedAt:new Date().toISOString(),words:latest.map(({term,meaning,synonyms,example,known,createdAt})=>({term,meaning,synonyms,example,known,createdAt}))};
    validateBackup(payload);const blob=new Blob([JSON.stringify(payload,null,2)],{type:'application/json;charset=utf-8'});if(blob.size>15000000)throw new Error('Bộ từ vượt giới hạn sao lưu 15 MB. Chưa tạo tệp để tránh bản sao lưu không thể khôi phục.');
    setWords(latest);const url=URL.createObjectURL(blob);const link=document.createElement('a');link.href=url;link.download='Wordnest-sao-luu-'+new Date().toISOString().slice(0,10)+'.json';link.click();setTimeout(()=>URL.revokeObjectURL(url),1000);setToast('Đã tạo tệp sao lưu toàn bộ '+latest.length+' từ, kèm ngày thêm và tiến độ.');
   }catch(e){setBackupError((e as Error).message);}finally{setBusy(false);}
  }
  async function chooseBackup(file?:File){if(!file)return;setBackupError('');try{if(file.size>15000000)throw new Error('Tệp quá lớn. Giới hạn 15 MB.');const parsed=JSON.parse(await file.text());setRestoring(validateBackup(parsed));}catch(e){setBackupError(e instanceof SyntaxError?'Tệp không đúng định dạng JSON.':(e as Error).message);}finally{if(backupInput.current)backupInput.current.value='';}}
- async function restoreBackup(){if(!restoring)return;setBusy(true);setBackupError('');try{const out=await api('restore',{backup:{format:'wordnest-backup',version:1,words:restoring}});await refresh();setSelectedWeek('all');setRestoring(null);setView('library');setToast('Đã khôi phục '+out.added+' từ · Giữ nguyên '+out.skipped+' từ đã có.');}catch(e){setBackupError((e as Error).message);}finally{setBusy(false);}}
+ async function restoreBackup(){if(!restoring)return;setBusy(true);setBackupError('');let added=0,skipped=0;try{for(let offset=0;offset<restoring.length;offset+=50){const out=await api('restore',{backup:{format:'wordnest-backup',version:1,words:restoring.slice(offset,offset+50)}});added+=out.added;skipped+=out.skipped;}await refresh();setSelectedWeek('all');setRestoring(null);setView('library');setToast('Đã khôi phục '+added+' từ · Giữ nguyên '+skipped+' từ đã có.');}catch(e){await refresh();setBackupError((e as Error).message+' Bạn có thể nhấn khôi phục lại để tiếp tục; từ đã có được giữ nguyên.');}finally{setBusy(false);}}
  async function rate(w:Word,value:boolean){if(demo){setSampleWords(a=>a.map(x=>x.id===w.id?{...x,known:value?1:0}:x));return;}setBusy(true);try{await api('known',{id:w.id,known:value});setWords(a=>a.map(x=>x.id===w.id?{...x,known:value?1:0}:x));}catch(e){setError((e as Error).message);throw e;}finally{setBusy(false);}}
  function speak(text:string){if(!('speechSynthesis'in window)){setToast('Trình duyệt chưa hỗ trợ giọng đọc. Bạn có thể dùng eJOY.');return;}window.speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(text);u.lang='en-US';u.rate=.88;const voice=window.speechSynthesis.getVoices().find(v=>v.lang==='en-US')||window.speechSynthesis.getVoices().find(v=>v.lang.startsWith('en'));if(voice)u.voice=voice;u.onerror=()=>setToast('Không phát được âm thanh. Hãy thử lại hoặc dùng eJOY.');window.speechSynthesis.speak(u);}
  const wordsRef=useRef(visible); wordsRef.current=visible;
@@ -50,11 +49,11 @@ export default function VocabularyApp(){
  return <div className="shell">
   <aside className="sidebar"><a className="brand" href="/" aria-label="Wordnest trang chủ"><span className="brand-icon"><BookOpen size={23}/></span>wordnest<span className="brand-dot">.</span></a><div className="side-label">GÓC HỌC CỦA BẠN</div>
    <nav aria-label="Chế độ học">{([{id:'library',label:'Bộ từ vựng',icon:BookOpen},{id:'flash',label:'Thẻ ghi nhớ',icon:Layers},{id:'quiz',label:'Chọn nghĩa',icon:Sparkles},{id:'match',label:'Ghép cặp',icon:Gamepad2}] as const).map(n=><button key={n.id} className={'nav-item '+(view===n.id?'active':'')} onClick={()=>switchView(n.id)}><n.icon size={20}/>{n.label}{n.id==='library'&&<span className="nav-count">{allWords.length}</span>}</button>)}</nav>
-   <div className="side-bottom"><div className="ejoy-mark"><Headphones size={23}/><strong>Học cùng eJOY</strong></div><p>Bôi đen từ tiếng Anh để tra và nghe bằng tiện ích của bạn.</p><button className="text-button" onClick={()=>setHelp(true)}>Cách sử dụng eJOY</button></div><div className="side-foot"><span className="mini-avatar">W</span><div>Không gian của bạn<small>English · Tiếng Việt</small></div></div>
+   <div className="side-bottom"><div className="ejoy-mark"><Headphones size={23}/><strong>Học cùng eJOY</strong></div><p>Bôi đen từ tiếng Anh để tra và nghe bằng tiện ích của bạn.</p><button className="text-button" onClick={()=>setHelp(true)}>Cách sử dụng eJOY</button></div><div className="side-foot"><span className="mini-avatar">W</span><div><span className="account-email" title={userEmail}>{userEmail||'Không gian của bạn'}</span><small>English · Tiếng Việt</small><form action="/auth/signout" method="post"><button className="text-button" type="submit">Đăng xuất</button></form></div></div>
   </aside>
-  <main className="main"><header className="topbar"><span>HỌC MỖI NGÀY, NHỚ LÂU HƠN</span><span className="save-status">{demo?'Đang xem bộ mẫu':loaded&&!error?'Bộ từ đã lưu':'Đang kết nối…'}</span></header>
+  <main className="main"><header className="topbar"><span>HỌC MỖI NGÀY, NHỚ LÂU HƠN</span><span className="save-status">{!auth?'Cần đăng nhập lại':error?'Chưa kết nối được':demo?'Đang xem bộ mẫu':loaded?'Bộ từ đã lưu trên tài khoản':'Đang kết nối…'}</span></header>
    <div className="page-heading"><div><p className="eyebrow">MY WORDS / {view==='library'?'01':view==='flash'?'02':view==='quiz'?'03':'04'}</p><h1>{view==='library'?'Từng từ, một bước tiến.':view==='flash'?'Chậm một chút. Nhớ lâu hơn.':view==='quiz'?'Bạn nhớ nghĩa nào?':'Tìm đúng cặp của nhau.'}</h1><p>{view==='library'?'Gom những từ bạn gặp. Biến chúng thành những từ bạn nhớ.':view==='flash'?'Đọc từ, thử nhớ nghĩa, rồi tự kiểm tra.':view==='quiz'?'Chọn nghĩa tiếng Việt đúng với từ tiếng Anh.':'Chọn một từ tiếng Anh và nghĩa tương ứng.'}</p></div><button className="primary" onClick={()=>setImporting(true)}><Plus size={19}/>Thêm từ vựng</button></div>
-   {!auth&&<div className="notice"><span>Bạn đang học thử. Đăng nhập để lưu từ và tiến độ.</span><a className="text-button" href="/signin-with-chatgpt?return_to=%2F" target="_top">Đăng nhập với ChatGPT</a></div>}
+   {!auth&&<div className="notice"><span>Phiên đăng nhập đã hết. Đăng nhập lại để tiếp tục lưu từ và tiến độ.</span><a className="text-button" href="/login" target="_top">Đăng nhập lại</a></div>}
    {error&&<div className="error" role="alert">{error}<button onClick={()=>void refresh()}>Thử tải lại</button></div>}
    {demo&&<div className="demo-banner"><span><strong>5 từ mẫu của bạn</strong> · Học thử ngay hoặc dán bảng từ mới.</span><button disabled={busy} onClick={()=>void save(SAMPLE).catch(e=>setError(e.message))}>Lưu 5 từ mẫu</button></div>}
    {loaded&&!demo&&<WeekPicker words={words} selected={selectedWeek} onChange={changeWeek}/>}

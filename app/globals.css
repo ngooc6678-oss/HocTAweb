@@ -28,3 +28,5 @@
 .restore-note{margin-top:16px;color:var(--muted);font-size:15px}
 @media(max-width:1100px){.weekly-heading{flex-direction:column;gap:14px}.week-select{width:100%}.week-cards{grid-template-columns:repeat(2,minmax(0,1fr))}}
 @media(max-width:650px){.weekly-panel{padding:17px}.week-cards{grid-template-columns:1fr}.week-context{align-items:flex-start;flex-direction:column}.week-card{padding:13px 15px}.backup-actions{width:100%;flex-wrap:wrap}.backup-actions button{flex:1}.weekly-heading h2{font-size:19px}}
+
+.side-foot>div{min-width:0}.account-email{display:block;overflow:hidden;text-overflow:ellipsis;max-width:170px;font-size:12px}.side-foot form{margin-top:7px}.side-foot form button{font-size:12px}

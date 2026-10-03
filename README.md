@@ -1,34 +1,45 @@
 # Wordnest · HocTAweb
 
-Ứng dụng học từ vựng tiếng Anh với giao diện tiếng Việt.
+Ứng dụng học từ vựng tiếng Anh với giao diện tiếng Việt, chạy bằng Next.js trên Vercel và lưu dữ liệu theo tài khoản trên Supabase.
 
 ## Chức năng
 
-- Dán bảng Markdown, bảng sao chép từ ChatGPT hoặc văn bản phân cách bằng tab; tự tách từ, nghĩa, từ đồng nghĩa và ví dụ.
-- Tìm kiếm, đánh dấu đã nhớ, học bằng thẻ, trắc nghiệm và trò chơi ghép từ.
-- Chọn tuần đã thêm từ để xem và ôn riêng nhóm đó (tuần bắt đầu thứ Hai, theo giờ Việt Nam).
-- Xuất và nhập bản sao lưu JSON, giữ ngày thêm và trạng thái đã nhớ.
-- Văn bản có thể bôi chọn để dùng tiện ích đọc từ trên trình duyệt như eJOY, tùy quyền của tiện ích.
+- Dán bảng 4 cột từ ChatGPT (Markdown, bảng HTML hoặc văn bản phân cách tab); tự tách từ, nghĩa, từ đồng nghĩa và ví dụ.
+- Tìm kiếm, thẻ ghi nhớ, chọn nghĩa, ghép cặp và đánh dấu từ đã nhớ.
+- Ôn theo tuần thêm từ (thứ Hai–Chủ nhật, giờ Việt Nam).
+- Sao lưu/khôi phục JSON giữ ngày thêm và tiến độ; từ trùng được bỏ qua.
+- Đăng nhập bằng email và mật khẩu; mỗi tài khoản chỉ truy cập bộ từ của mình.
+- Bôi chọn văn bản để dùng eJOY nếu tiện ích được bật trên trình duyệt.
 
-## Chạy trên máy
+## Triển khai
 
-Cần Node.js >= 22.13 và npm. Sau khi tải mã nguồn:
+1. Tạo dự án Supabase và áp dụng SQL trong `supabase/migrations/` theo thứ tự. Bảng từ có Row Level Security để cách ly dữ liệu từng người dùng.
+2. Trên Vercel, nhập kho GitHub này, chọn framework **Next.js**. Không dùng lệnh build Vinext/Cloudflare của phiên bản cũ.
+3. Thêm hai biến môi trường cho Production và Preview:
+   - `NEXT_PUBLIC_SUPABASE_URL`: URL dự án Supabase.
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`: publishable key của dự án (hỗ trợ `NEXT_PUBLIC_SUPABASE_ANON_KEY` nếu dùng key cũ).
+4. Deploy. Trong Supabase Authentication → URL Configuration, đặt Site URL là địa chỉ Vercel vừa tạo và cấu hình redirect xác nhận tài khoản theo `DEVELOPMENT.md`.
+5. Tạo tài khoản Wordnest trên trang đăng nhập rồi xác nhận email. Tài khoản học Wordnest độc lập với tài khoản quản trị Supabase/Vercel.
+6. Để chuyển bộ từ cũ, đăng nhập đúng tài khoản Wordnest rồi dùng **Khôi phục** và chọn bản sao lưu JSON đã xuất từ máy cũ.
+
+Không đưa mật khẩu, service-role key, cơ sở dữ liệu cá nhân hay tệp sao lưu lên GitHub. Ứng dụng chỉ cần publishable key; quyền truy cập dữ liệu được bảo vệ bằng đăng nhập và RLS.
+
+## Chạy để phát triển
+
+Cần Node.js >= 22.13. Tạo `.env.local` với hai biến ở trên rồi chạy:
 
 ```sh
 npm ci
-npm run build
-node --import ./scripts/sites-env.mjs ./node_modules/wrangler/bin/wrangler.js d1 execute DB --local --config dist/server/wrangler.json --persist-to .wrangler/state --file drizzle/0000_thick_mongu.sql
-npm run dev -- --hostname 127.0.0.1
+npm run dev
 ```
 
-Lệnh tạo bảng chỉ chạy một lần cho cơ sở dữ liệu mới. Mở http://127.0.0.1:5173/; môi trường phát triển có đăng nhập mô phỏng dành riêng cho máy cá nhân. Dừng ứng dụng bằng Ctrl+C. Kho mã nguồn không cài tác vụ tự khởi động Windows.
+Kiểm tra trước khi triển khai:
 
-Dữ liệu phát triển lưu trong `.wrangler/state` và không được đưa lên GitHub. Bản cài mới bắt đầu với cơ sở dữ liệu trống; dùng chức năng nhập bản sao lưu để chuyển dữ liệu của bạn.
+```sh
+npm run typecheck
+npm run build
+npm test
+npm run test:auth
+```
 
-## Trạng thái triển khai
-
-Đây là **kho mã nguồn**, chưa phải địa chỉ website trực tuyến. GitHub Pages không chạy được phiên bản hiện tại vì ứng dụng cần máy chủ, Cloudflare D1 và xác thực người dùng. Đưa vào sử dụng trực tuyến cần cấu hình môi trường máy chủ, cơ sở dữ liệu và cơ chế đăng nhập phù hợp; không bật đăng nhập mô phỏng trên Internet. Bộ khung hiện dùng xác thực do Sites cung cấp khi triển khai trên Sites.
-
-Mã nguồn không bao gồm dữ liệu học cá nhân, thông tin đăng nhập, thư viện đã cài hay cấu hình tự khởi động của máy Windows.
-
-Chi tiết bộ khung và môi trường phát triển: [DEVELOPMENT.md](DEVELOPMENT.md).
+Dự án không tự khởi động cùng Windows. Website trực tuyến không cần máy tính cá nhân chạy nền.
