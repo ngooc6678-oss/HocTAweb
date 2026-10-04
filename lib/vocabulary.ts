@@ -42,5 +42,5 @@ export function parseText(text:string) {
  return parseRows(rows);
 }
 export function keyOf(w:Draft) { return [w.term,w.meaning].map(s=>s.normalize('NFKC').trim().replace(/\s+/g,' ').toLowerCase()).join('\u001f'); }
-export function posLabel(s:string){return s.match(/\((?:n|v|adj|adv|prep|pron|conj|det|interj|phrasal v|phr|noun|verb|adjective|adverb)\.?\)\s*$/i)?.[0]||'';}
+export function posLabel(s:string){return s.match(/\((?:n|v|adj|adv|prep|pron|conj|det|interj|phrasal v|phr|noun|verb|adjective|adverb)\.?(?:\s*[/,]\s*(?:n|v|adj|adv|prep|pron|conj|det|interj|phrasal v|phr|noun|verb|adjective|adverb)\.?)*\)\s*$/i)?.[0]||'';}
 export function spokenTerm(s:string){const p=posLabel(s);return p?s.slice(0,s.lastIndexOf(p)).trim():s.trim();}

@@ -43,3 +43,9 @@ npm run test:auth
 ```
 
 Dự án không tự khởi động cùng Windows. Website trực tuyến không cần máy tính cá nhân chạy nền.
+
+## Ghép cặp
+
+Nhấn ô tiếng Anh để nghe giọng đọc trình duyệt (kể cả ô đã ghép đúng). Ghép hết lượt để chuyển sang tối đa 5 từ chưa chơi; chỉ bắt đầu vòng mới khi đã dùng hết bộ từ đang chọn. Các từ trùng cách viết hoặc nghĩa được tách sang lượt khác để tránh đáp án mơ hồ.
+
+Tiến độ ghép cặp được lưu bằng localStorage, riêng theo tài khoản và phạm vi tuần / tất cả. Tải lại trang hoặc đổi chế độ học vẫn tiếp tục lượt hiện tại. Tiến độ này chưa đồng bộ giữa các thiết bị và sẽ mất nếu xóa dữ liệu trình duyệt; bộ từ và trạng thái đã nhớ trên Supabase không bị ảnh hưởng.
