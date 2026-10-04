@@ -49,3 +49,7 @@ Dự án không tự khởi động cùng Windows. Website trực tuyến không
 Nhấn ô tiếng Anh để nghe giọng đọc trình duyệt (kể cả ô đã ghép đúng). Ghép hết lượt để chuyển sang tối đa 5 từ chưa chơi; chỉ bắt đầu vòng mới khi đã dùng hết bộ từ đang chọn. Các từ trùng cách viết hoặc nghĩa được tách sang lượt khác để tránh đáp án mơ hồ.
 
 Tiến độ ghép cặp được lưu bằng localStorage, riêng theo tài khoản và phạm vi tuần / tất cả. Tải lại trang hoặc đổi chế độ học vẫn tiếp tục lượt hiện tại. Tiến độ này chưa đồng bộ giữa các thiết bị và sẽ mất nếu xóa dữ liệu trình duyệt; bộ từ và trạng thái đã nhớ trên Supabase không bị ảnh hưởng.
+
+## Thẻ ghi nhớ và lưu tiến độ
+
+Hai nút “Mình đã nhớ” / “Cần ôn thêm” chuyển thẻ ngay và lưu trạng thái vào Supabase ở nền. Những lần đổi trạng thái của cùng một từ được gửi theo thứ tự để giữ lựa chọn mới nhất. Nếu lưu lỗi, trang giữ lựa chọn đang chờ trong bộ nhớ và hiện “Thử lưu lại”; hãy lưu xong trước khi đóng trang. Trình duyệt cảnh báo khi rời trang còn tiến độ chưa lưu. Sao lưu, nhập/khôi phục, xóa từ và đăng xuất chờ lưu xong để tránh bỏ sót tiến độ.
